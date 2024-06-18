@@ -1,7 +1,273 @@
+const csoundModule = (function () {
 
-mergeInto(LibraryManager.library, {
+    const csoundTest = async function (flags) {
+        window.alert("csoundTest");
 
-    csoundInitialize: async function(flags) {
+        const csoundVariations = [
+            { useWorker: false, useSPN: false, name: "SINGLE THREAD, AW" },
+            { useWorker: false, useSPN: true, name: "SINGLE THREAD, SPN" },
+            { useWorker: true, useSAB: true, name: "WORKER, AW, SAB" },
+            { useWorker: true, useSAB: false, name: "WORKER, AW, Messageport" },
+            { useWorker: true, useSAB: false, useSPN: true, name: "WORKER, SPN, MessagePort" },
+        ];
+
+        const helloWorld = `
+      <CsoundSynthesizer>
+      <CsOptions>
+          -odac
+      </CsOptions>
+      <CsInstruments>
+          instr 1
+          prints "Hello World!\\n"
+          endin
+      </CsInstruments>
+      <CsScore>
+          i 1 0 0
+      </CsScore>
+      </CsoundSynthesizer>
+      `;
+
+        const shortTone = `
+      <CsoundSynthesizer>
+      <CsOptions>
+          -odac
+      </CsOptions>
+      <CsInstruments>
+      
+          chnset(1, "test1")
+          chnset(2, "test2")
+      
+          instr 1
+          out poscil(0dbfs/3, 440) * linen:a(1, .01, p3, .01)
+          endin
+      </CsInstruments>
+      <CsScore>
+          i 1 0 2
+      </CsScore>
+      </CsoundSynthesizer>
+      `;
+
+        const shortTone2 = `
+      <CsoundSynthesizer>
+      <CsOptions>
+          -odac
+      </CsOptions>
+      <CsInstruments>
+          0dbfs = 1
+      
+          chnset(440, "freq")
+      
+          instr 1
+          out poscil(0dbfs/3, chnget:k("freq")) * linen:a(1, .01, p3, .01)
+          endin
+      </CsInstruments>
+      <CsScore>
+          i 1 0 1
+      </CsScore>
+      </CsoundSynthesizer>
+      `;
+
+        const stringChannelTest = `
+      <CsoundSynthesizer>
+      <CsOptions>
+          -odac
+      </CsOptions>
+      <CsInstruments>
+          0dbfs = 1
+      
+          instr 1
+            chnset("test0", "strChannel")
+            turnoff
+          endin
+      
+      </CsInstruments>
+      <CsScore>
+          i 1 0 2
+          e 2 0
+      </CsScore>
+      </CsoundSynthesizer>
+      `;
+
+        const pluginTest = `
+      <CsoundSynthesizer>
+      <CsOptions>
+       -odac
+      </CsOptions>
+      <CsInstruments>
+        0dbfs=1
+        instr 1
+          i1 = 2
+          i2 = 2
+          i3 mult i1, i2
+          print i3
+        endin
+        instr 2
+          k1 = 2
+          k2 = 2
+          k3 mult k1, k2
+          printk2 k3
+        endin
+        instr 3
+          a1 oscili 0dbfs, 440
+          a2 oscili 0dbfs, 356
+          a3 mult a1, a2
+          out a3
+        endin
+      </CsInstruments>
+      <CsScore>
+        i1 0 0
+        i2 0 1
+        i3 0 2
+        e 0 0
+      </CsScore>
+      </CsoundSynthesizer>
+      `;
+
+        const cxxPluginTest = `
+      <CsoundSynthesizer>
+      <CsOptions>
+       -odac
+      </CsOptions>
+      <CsInstruments>
+        0dbfs=1
+      instr 1
+       kcone_lengths[] fillarray 0.0316, 0.051, .3, 0.2
+       kradii_in[] fillarray 0.0055, 0.00635, 0.0075, 0.0075
+       kradii_out[]  fillarray 0.0055, 0.0075, 0.0075, 0.0275
+       kcurve_type[] fillarray 1, 1, 1, 2
+       kLength linseg 0.2, 2, 0.3
+       kPick_Pos = 1.0
+       kEndReflection init 1.0
+       kEndReflection = 1.0
+       kDensity = 1.0
+       kComputeVisco = 0
+       aImpulse mpulse .5, .1
+       aFeedback, aSound resontube 0.005*aImpulse, kLength, kcone_lengths, kradii_in, kradii_out, kcurve_type, kEndReflection, kDensity, kPick_Pos, kComputeVisco
+       out aSound
+      endin
+      </CsInstruments>
+      <CsScore>
+      i1 0 2
+      </CsScore>
+      </CsoundSynthesizer>
+      `;
+
+        const ftableTest = `
+      <CsoundSynthesizer>
+      <CsOptions>
+          -odac
+      </CsOptions>
+      <CsInstruments>
+          instr 1
+          prints "Hello Fibonnaci!\\n"
+          prints "Table length %d\\n", tableng:i(1)
+          endin
+      </CsInstruments>
+      <CsScore>
+          f 1 0 8 -2 0 1 1 2 3 5 8 13
+          i 1 0 -1
+      </CsScore>
+      </CsoundSynthesizer>
+      `;
+
+        const samplesTest = `
+      <CsoundSynthesizer>
+      <CsOptions>
+      -odac
+      </CsOptions>
+      <CsInstruments>
+      sr = 44100
+      ksmps = 32
+      nchnls = 1
+      0dbfs = 1
+      
+      instr 1
+       Ssample = "tiny_test_sample.wav"
+       aRead[] diskin Ssample, 1, 0, 0
+       out aRead[0], aRead[0]
+      endin
+      
+      instr 2
+        aSig monitor
+        fout "monitor_out.wav", 4, aSig
+      endin
+      
+      </CsInstruments>
+      <CsScore>
+      i 2 0 0.3
+      i 1 0 0.1
+      i 1 + .
+      i 1 + .
+      e
+      </CsScore>
+      </CsoundSynthesizer>
+      `;
+
+        var variation = csoundVariations[flags];
+
+        async function startStopTest(variation) {
+            const msg = "can be started:";
+            const cs = await Csound(variation);
+            console.log(`Csound version: ${cs.name}`);
+            const test = await cs.start();
+            console.log(test == 0 ? `${msg} ok` : `${msg} failed`);
+            //await cs.stop();
+            //await cs.destroy();
+            await cs.terminateInstance();
+        };
+
+        async function expectedMethodsTest(variation) {
+            const msg = "has expected methods:";
+            const cs = await Csound(variation);
+            const audioContext = typeof cs.getAudioContext !== "function"; // or instead -> // cs.getAudioContext() !== undefined
+            const start = typeof cs.start !== "function";
+            const stop = typeof cs.stop !== "function";
+            const pause = typeof cs.pause !== "function";
+            var test = audioContext && start && stop && pause
+            console.log(test == 0 ? `${msg} ok` : `${msg} failed`);
+            //await cs.stop();
+            //await cs.destroy();
+            await cs.terminateInstance();
+        };
+
+        async function canRunCompileOrc(variation) {
+            const msg = "can use run using just compileOrc:";
+            const cs = await Csound(variation);
+            await cs.compileOrc(`
+                ksmps=64
+                instr 1
+                out oscili(.25, 110)
+                endin
+                schedule(1,0,1)
+            `);
+            const test = await cs.start();
+            console.log(test == 0 ? `${msg} ok` : `${msg} failed`);
+            //await cs.stop();
+            //await cs.terminateInstance();
+        };
+
+        async function canPlayTone(variation) {
+            const msg = "can play tone and get channel values:";
+            const cs = await Csound(variation);
+            const compileReturn = await cs.compileCsdText(shortTone);
+            
+            const startTest = await cs.start();
+            const getChan1 = await cs.getControlChannel("test1");
+            const getChan2 = await cs.getControlChannel("test2");
+            const test = startTest && getChan1 && getChan2;
+            console.log(test == 0 ? `${msg} ok` : `${msg} failed`);
+            // await cs.perform();
+            // await cs.terminateInstance();
+        };
+
+        // await startStopTest(variation);
+        // await expectedMethodsTest(variation);
+        //await canRunCompileOrc(variation);
+        await canPlayTone(variation);
+        
+    };
+
+    const csoundInitialize = async function (flags) {
         window.alert("csoundInitialize");
 
         const csoundVariations = [
@@ -10,9 +276,8 @@ mergeInto(LibraryManager.library, {
             { useWorker: true, useSAB: true, name: "WORKER, AW, SAB" },
             { useWorker: true, useSAB: false, name: "WORKER, AW, Messageport" },
             { useWorker: true, useSAB: false, useSPN: true, name: "WORKER, SPN, MessagePort" },
-          ];
-        
-        
+        ];
+
         //Csound.csoundInitialize(flags); // this doesn't work
 
         console.log("starting to await for Csound with flag: " + flags)
@@ -20,10 +285,26 @@ mergeInto(LibraryManager.library, {
         console.log(`Csound version: ${cs.name}`);
         const startReturn = await cs.start();
         console.log(startReturn);
-        // await cs.stop();
-        // cs.terminateInstance && (await cs.terminateInstance());
-    },
-    /* csoundCreate: function(hostdata) {
+        await cs.stop();
+        cs.terminateInstance && (await cs.terminateInstance());
+    };
+
+    // Expose functions using object literal
+    return {
+        csoundTest,
+        csoundInitialize,
+    };
+})();
+
+mergeInto(LibraryManager.library, {
+    csoundInitialize: csoundModule.csoundInitialize, // Reference the function from the module
+    csoundTest: csoundModule.csoundTest
+});
+
+/*
+mergeInto(LibraryManager.library, {
+
+     csoundCreate: function(hostdata) {
         window.alert("csoundCreate");
         Csound.csoundCreate(hostdata);
     },
@@ -468,5 +749,6 @@ mergeInto(LibraryManager.library, {
     csoundDeleteUtilityList: function(csound, list) {
         window.alert("csoundDeleteUtilityList");
         Csound.csoundDeleteUtilityList(csound, list);
-    }, */
+    },    
 });
+*/
