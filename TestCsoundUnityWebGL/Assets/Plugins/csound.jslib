@@ -1,11 +1,29 @@
 
 mergeInto(LibraryManager.library, {
 
-    csoundInitialize: function(flags) {
+    csoundInitialize: async function(flags) {
         window.alert("csoundInitialize");
-        Csound.csoundInitialize(flags);
+
+        const csoundVariations = [
+            { useWorker: false, useSPN: false, name: "SINGLE THREAD, AW" },
+            { useWorker: false, useSPN: true, name: "SINGLE THREAD, SPN" },
+            { useWorker: true, useSAB: true, name: "WORKER, AW, SAB" },
+            { useWorker: true, useSAB: false, name: "WORKER, AW, Messageport" },
+            { useWorker: true, useSAB: false, useSPN: true, name: "WORKER, SPN, MessagePort" },
+          ];
+        
+        
+        //Csound.csoundInitialize(flags); // this doesn't work
+
+        console.log("starting to await for Csound with flag: " + flags)
+        const cs = await Csound(csoundVariations[flags]);
+        console.log(`Csound version: ${cs.name}`);
+        const startReturn = await cs.start();
+        console.log(startReturn);
+        // await cs.stop();
+        // cs.terminateInstance && (await cs.terminateInstance());
     },
-    csoundCreate: function(hostdata) {
+    /* csoundCreate: function(hostdata) {
         window.alert("csoundCreate");
         Csound.csoundCreate(hostdata);
     },
@@ -450,5 +468,5 @@ mergeInto(LibraryManager.library, {
     csoundDeleteUtilityList: function(csound, list) {
         window.alert("csoundDeleteUtilityList");
         Csound.csoundDeleteUtilityList(csound, list);
-    },
+    }, */
 });
