@@ -11,7 +11,7 @@ public class TestCallCsound : MonoBehaviour
     void Start()
     {
         Debug.Log("Calling csoundInitialize");
-        csoundInitialize(3);
+        csoundInitialize(0);
     }
 
     // Update is called once per frame
