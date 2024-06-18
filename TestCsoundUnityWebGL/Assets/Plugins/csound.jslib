@@ -213,7 +213,7 @@ const csoundModule = (function () {
             console.log(test == 0 ? `${msg} ok` : `${msg} failed`);
             //await cs.stop();
             //await cs.destroy();
-            await cs.terminateInstance();
+            //await cs.terminateInstance();
         };
 
         async function expectedMethodsTest(variation) {
@@ -225,9 +225,10 @@ const csoundModule = (function () {
             const pause = typeof cs.pause !== "function";
             var test = audioContext && start && stop && pause
             console.log(test == 0 ? `${msg} ok` : `${msg} failed`);
+            await cs.start();
             //await cs.stop();
             //await cs.destroy();
-            await cs.terminateInstance();
+            //await cs.terminateInstance();
         };
 
         async function canRunCompileOrc(variation) {
@@ -260,9 +261,9 @@ const csoundModule = (function () {
             // await cs.terminateInstance();
         };
 
-        // await startStopTest(variation);
-        // await expectedMethodsTest(variation);
-        //await canRunCompileOrc(variation);
+        await startStopTest(variation);
+        await expectedMethodsTest(variation);
+        await canRunCompileOrc(variation);
         await canPlayTone(variation);
         
     };
