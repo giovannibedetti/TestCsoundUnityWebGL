@@ -1,7 +1,20 @@
-const csoundModule = (function () {
+var csoundModule = {
 
-    const csoundTest = async function (flags) {
+    $CsoundRef: {
+        uniqueIdCounter: 0,
+        instances: {}
+    },
+
+    $CsoundVariations: {
+
+    },
+    //const csoundInstances = {};
+    // Counter for unique ID generation
+    //const uniqueIdCounter = 0;
+
+    csoundTest: async function (flags) {
         window.alert("csoundTest");
+
 
         const csoundVariations = [
             { useWorker: false, useSPN: false, name: "SINGLE THREAD, AW" },
@@ -63,6 +76,26 @@ const csoundModule = (function () {
       </CsInstruments>
       <CsScore>
           i 1 0 1
+      </CsScore>
+      </CsoundSynthesizer>
+      `;
+
+        const keepAliveTest = `
+      <CsoundSynthesizer>
+      <CsOptions>
+          -odac
+      </CsOptions>
+      <CsInstruments>
+          0dbfs = 1
+      
+          chnset(440, "freq")
+      
+          instr 1
+          out poscil(0dbfs/3, chnget:k("freq")) * linen:a(1, .01, p3, .01)
+          endin
+      </CsInstruments>
+      <CsScore>
+          i 1 0 z
       </CsScore>
       </CsoundSynthesizer>
       `;
@@ -203,14 +236,50 @@ const csoundModule = (function () {
       </CsoundSynthesizer>
       `;
 
+        const delay = ms => new Promise(res => setTimeout(res, ms));
+
+        function timeout(ms, errorMessage = 'Operation timed out') {
+            return new Promise((_, reject) =>
+                setTimeout(() => reject(new Error(errorMessage)), ms)
+            );
+        }
+
+        function useTimeout(promise, ms) {
+            return Promise.race([
+                promise,
+                timeout(ms)
+            ]);
+        }
+
         var variation = csoundVariations[flags];
 
         async function startStopTest(variation) {
+            var msgOutput = "";
+            var t0 = performance.now();
+
+
             const msg = "can be started:";
             const cs = await Csound(variation);
-            console.log(`Csound version: ${cs.name}`);
+            var t1 = performance.now();
+            console.log(`Csound version: ${cs.name}, ${cs}`);
             const test = await cs.start();
-            console.log(test == 0 ? `${msg} ok` : `${msg} failed`);
+            var t2 = performance.now();
+            useTimeout(test, 2000)
+                .then(() => {
+                    var t3 = performance.now();
+                    console.log(`Start stop test completed in ${t3 - t0} milliseconds
+                        \nt0: ${t0}\nt1: ${t1}\nt2: ${t2}\nt3: ${t3}\n`);
+                    console.log(test == 0 ? `${msg} ok` : `${msg} failed`);
+
+                })
+                .catch(error => {
+                    var t3 = performance.now();
+                    console.error('Error:', error.message);
+                    console.log(`Start stop test timed out in ${t3 - t0} milliseconds
+                        \nt0: ${t0}\nt1: ${t1}\nt2: ${t2}\nt3: ${t3}\n`);
+                });
+
+            //console.log(test == 0 ? `${msg} ok` : `${msg} failed`);
             //await cs.stop();
             //await cs.destroy();
             //await cs.terminateInstance();
@@ -225,7 +294,14 @@ const csoundModule = (function () {
             const pause = typeof cs.pause !== "function";
             var test = audioContext && start && stop && pause
             console.log(test == 0 ? `${msg} ok` : `${msg} failed`);
-            await cs.start();
+            // useTimeout(cs, 2000)
+            //     .then(() => {
+            //         console.log(test == 0 ? `${msg} ok` : `${msg} failed`);
+            //     })
+            //     .catch(error => {
+            //         console.error('Error:', error.message);
+            //     });
+            //await cs.start();
             //await cs.stop();
             //await cs.destroy();
             //await cs.terminateInstance();
@@ -242,33 +318,79 @@ const csoundModule = (function () {
                 schedule(1,0,1)
             `);
             const test = await cs.start();
-            console.log(test == 0 ? `${msg} ok` : `${msg} failed`);
+            useTimeout(test, 2000)
+                .then(() => {
+                    console.log(test == 0 ? `${msg} ok` : `${msg} failed`);
+                })
+                .catch(error => {
+                    console.error('Error:', error.message);
+                });
+            //console.log(test == 0 ? `${msg} ok` : `${msg} failed`);
             //await cs.stop();
             //await cs.terminateInstance();
         };
 
         async function canPlayTone(variation) {
             const msg = "can play tone and get channel values:";
+            var t0 = performance.now();
             const cs = await Csound(variation);
+            var t1 = performance.now();
             const compileReturn = await cs.compileCsdText(shortTone);
-            
+            var t2 = performance.now();
             const startTest = await cs.start();
+            var t3 = performance.now();
             const getChan1 = await cs.getControlChannel("test1");
+            var t4 = performance.now();
             const getChan2 = await cs.getControlChannel("test2");
-            const test = startTest && getChan1 && getChan2;
-            console.log(test == 0 ? `${msg} ok` : `${msg} failed`);
+            var t5 = performance.now();
+            console.log(`startTest: ${startTest} getChan1: ${getChan1} getChan2: ${getChan2}`)
+            const test = (startTest == 0) && (getChan1 == 1) && (getChan2 == 2);
+            console.log(`test: ${test}`)
+            console.log(`Play tone test completed in ${t5 - t0} milliseconds
+                \nt0: ${t0}\nt1: ${t1}(${t1 - t0}ms)\nt2: ${t2}(${t2 - t1}ms)\nt3: ${t3}(${t3 - t2}ms)\nt4: ${t4}(${t4 - t3}ms)\nt5: ${t5}(${t5 - t4}ms)\n`);
+
+            // useTimeout(test, 2000)
+            //     .then(() => {
+            //         console.log(`Play tone test completed in ${t5 - t0} milliseconds
+            //             \nt0: ${t0}\nt1: ${t1}\nt2: ${t2}\nt3: ${t3}\nt4: ${t4}\nt5: ${t5}\n`);    
+            //         console.log(test == 0 ? `${msg} ok` : `${msg} failed`);
+            //     })
+            //     .catch(error => {
+            //         console.log(`Play tone test timed out in ${t5 - t0} milliseconds
+            //             \nt0: ${t0}\nt1: ${t1}\nt2: ${t2}\nt3: ${t3}\nt4: ${t4}\nt5: ${t5}\n`);
+            //         console.error('Error:', error.message);
+            //     });
+            //console.log(test == 0 ? `${msg} ok` : `${msg} failed`);
             // await cs.perform();
             // await cs.terminateInstance();
         };
 
-        await startStopTest(variation);
-        await expectedMethodsTest(variation);
-        await canRunCompileOrc(variation);
-        await canPlayTone(variation);
-        
-    };
+        async function canStayAlive(variation) {
+            const msg = "Can be kept alive and stopped after a 5s timeout";
+            var t0 = performance.now();
+            const cs = await Csound(variation);
+            var t1 = performance.now();
+            const compileReturn = await cs.compileCsdText(keepAliveTest);
+            var t2 = performance.now();
+            const startTest = await cs.start();
+            var t3 = performance.now();
+            await delay(5000);
+            var t4 = performance.now();
+            const stopTest = await cs.stop()
+            var t5 = performance.now();
 
-    const csoundInitialize = async function (flags) {
+            //console.log(`${compileReturn} ${startTest} ${stopTest}`)
+            console.log((compileReturn == 0 && startTest == 0 && stopTest == undefined) ? `----->>> [TEST OK]: ${msg} completed in ${t5 - t0}ms` : `----->>> [TEST FAILED]:${msg} failed in ${t5 - t0}ms`);
+        }
+
+        //await startStopTest(variation);
+        // await expectedMethodsTest(variation);
+        // await canRunCompileOrc(variation);
+        //await canPlayTone(variation);
+        await canStayAlive(variation);
+    },
+
+    csoundInitialize: async function (flags, csdTextPtr, callback) {
         window.alert("csoundInitialize");
 
         const csoundVariations = [
@@ -279,28 +401,53 @@ const csoundModule = (function () {
             { useWorker: true, useSAB: false, useSPN: true, name: "WORKER, SPN, MessagePort" },
         ];
 
-        //Csound.csoundInitialize(flags); // this doesn't work
+        variation = csoundVariations[flags]
+        csdText = UTF8ToString(csdTextPtr)
 
         console.log("starting to await for Csound with flag: " + flags)
-        const cs = await Csound(csoundVariations[flags]);
+        const cs = await Csound(variation);
         console.log(`Csound version: ${cs.name}`);
+        const compileReturn = await cs.compileCsdText(csdText);
         const startReturn = await cs.start();
         console.log(startReturn);
-        await cs.stop();
-        cs.terminateInstance && (await cs.terminateInstance());
-    };
+        CsoundRef.instances[CsoundRef.uniqueIdCounter] = cs;
+        var uniqueId = CsoundRef.uniqueIdCounter;
+        //csoundInstances[uniqueId] = cs;
+        CsoundRef.uniqueIdCounter++;
+        console.log(`uniqueId: ${uniqueId}, CsoundRef.uniqueIdCounter: ${CsoundRef.uniqueIdCounter}`);
+        //callback(uniqueId);
+        Module['dynCall_vi'](callback, [uniqueId]);
+        //Runtime.dynCall('vi', callback, [uniqueId]);
+        //await cs.stop();
+        //cs.terminateInstance && (await cs.terminateInstance());
+    },
+
+    csoundGetInstance: function (uniqueId) {
+        return CsoundRef.instances[uniqueId];
+    },
+
+    csoundGetChannel: async function (uniqueId, channelPtr) {
+        return CsoundRef.instances[uniqueId].getControlChannel(UTF8ToString(channel));
+    },
+
+    csoundSetChannel: async function (uniqueId, channelPtr, value) {
+        CsoundRef.instances[uniqueId].setControlChannel(UTF8ToString(channelPtr), value);
+    }
+
 
     // Expose functions using object literal
-    return {
-        csoundTest,
-        csoundInitialize,
-    };
-})();
+    // return {
+    //     csoundTest,
+    //     //uniqueIdCounter,
+    //     csoundInitialize,
+    //     //csoundGetInstance,
+    //     //csoundGetChannel,
+    //     //csoundSetChannel
+    // };
+}//)();
 
-mergeInto(LibraryManager.library, {
-    csoundInitialize: csoundModule.csoundInitialize, // Reference the function from the module
-    csoundTest: csoundModule.csoundTest
-});
+autoAddDeps(csoundModule, '$CsoundRef');
+mergeInto(LibraryManager.library, csoundModule);
 
 /*
 mergeInto(LibraryManager.library, {
