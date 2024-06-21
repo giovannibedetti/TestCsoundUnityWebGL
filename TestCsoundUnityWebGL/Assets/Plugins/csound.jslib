@@ -13,7 +13,7 @@ var csoundModule = {
     //const uniqueIdCounter = 0;
 
     csoundTest: async function (flags) {
-        window.alert("csoundTest");
+        //window.alert("csoundTest");
 
 
         const csoundVariations = [
@@ -391,7 +391,7 @@ var csoundModule = {
     },
 
     csoundInitialize: async function (flags, csdTextPtr, callback) {
-        window.alert("csoundInitialize");
+        //window.alert("csoundInitialize");
 
         const csoundVariations = [
             { useWorker: false, useSPN: false, name: "SINGLE THREAD, AW" },
@@ -412,13 +412,9 @@ var csoundModule = {
         console.log(startReturn);
         CsoundRef.instances[CsoundRef.uniqueIdCounter] = cs;
         var uniqueId = CsoundRef.uniqueIdCounter;
-        //csoundInstances[uniqueId] = cs;
         CsoundRef.uniqueIdCounter++;
         console.log(`uniqueId: ${uniqueId}, CsoundRef.uniqueIdCounter: ${CsoundRef.uniqueIdCounter}`);
-        //callback(uniqueId);
         Module['dynCall_vi'](callback, [uniqueId]);
-        //Runtime.dynCall('vi', callback, [uniqueId]);
-        //await cs.stop();
         //cs.terminateInstance && (await cs.terminateInstance());
     },
 
