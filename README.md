@@ -1,14 +1,6 @@
 # TestCsoundUnityWebGL
 
-Preliminar tests to use Csound with Unity on the WebGL platform 
-It uses Csound 6.18
- 
-
-# @csound/browser
-[![npm (scoped with tag)](https://shields.shivering-isles.com/npm/v/@csound/browser/latest)](https://www.npmjs.com/package/@csound/browser)
-[![GitHub Workflow Status](https://shields.shivering-isles.com/github/workflow/status/csound/csound/csound_wasm)](https://github.com/csound/csound/actions?query=workflow%3Acsound_wasm)
-[![styled with prettier](https://img.shields.io/badge/styled_with-prettier-ff69b4.svg)](https://github.com/prettier/prettier)
-
+Preliminar tests to use Csound with Unity on the WebGL platform
 
 ## Api Documentation
 
