@@ -236,6 +236,75 @@ var csoundModule = {
       </CsoundSynthesizer>
       `;
 
+        const microphoneTest =
+            `
+      <CsoundSynthesizer>
+<CsOptions>
+-iadc -odac
+</CsOptions>
+<CsInstruments>
+sr=44100
+ksmps=32
+0dbfs=1
+nchnls=2
+
+ga1 init 0
+ga2 init 0
+
+instr 1
+  ;; read audio signal from audio input channel 1
+  asig = inch(1)
+  
+  asig *= 0.5
+  
+  ;; send signal directly to out
+  out(asig, asig)
+
+  ;; send 0.25 signal to reverb
+  afb = asig * 0.25
+  ga1 += afb
+  ga2 += afb
+endin
+
+instr FBReverbMixer 
+  afb0 init 0
+  afb1 init 0
+
+  ;; dry and reverb send signals  
+  al, ar reverbsc ga1, ga2, 0.95, 5000
+  
+  a1 = tanh(al) 
+  a2 = tanh(ar)
+
+  a1 += afb0
+  a2 += afb1
+ 
+  kfb_amt = 0.9  ;; feedback amount
+  kfb_dur = 2000 ;; time in ms
+
+  afb0 = vdelay(a1 * kfb_amt, kfb_dur, 10000)
+  afb1 = vdelay(a2 * kfb_amt, kfb_dur, 10000)
+
+  kamp = 1.0 	;; amplitude adjustmnet
+  a1 *= kamp
+  a2 *= kamp
+  
+  out(a1, a2)
+  
+  ga1 = 0
+  ga2 = 0
+
+endin 
+
+;; start instruments as always-on
+schedule(1, 0, -1)
+schedule("FBReverbMixer", 0, -1)
+</CsInstruments>
+<CsScore>
+</CsScore>
+</CsoundSynthesizer>
+`
+
         const delay = ms => new Promise(res => setTimeout(res, ms));
 
         function timeout(ms, errorMessage = 'Operation timed out') {
@@ -390,8 +459,58 @@ var csoundModule = {
         await canStayAlive(variation);
     },
 
-    csoundInitialize: async function (flags, csdTextPtr, callback) {
+    csoundInitialize: async function (flags, csdTextPtr, filesToLoadTextPtr, callback) {
         //window.alert("csoundInitialize");
+
+        // this is called by the open button
+        async function openf(sf) {
+            // create an anchor element
+            let a = document.createElement('a');
+            // append it to html body
+            document.body.appendChild(a);
+            // set the anchor URL
+            a.href = sf;
+            // open in a different tab
+            a.target = "_blank";
+            // click on the element
+            a.click();
+        }
+
+        async function download(sf) {
+            // create an anchor element
+            let a = document.createElement('a');
+            // append it to html body
+            document.body.appendChild(a);
+            // set the anchor URL
+            a.href = sf;
+            // set the download name
+            a.download = "test.dat";
+            // click on the element
+            a.click();
+        }
+        
+        // copy file from local and return a URL for it
+        async function copyUrlFromLocal(cs, src,t) {
+            // get the file as a Uint8Array
+            let data = await cs.fs.readFile(src);
+            // create a data blob
+            let destfile = new Blob([data.buffer], { type: t});
+            // create a URL for it
+            return window.URL.createObjectURL(destfile);
+        }
+
+        // copy URL to local file
+        async function copyUrlToLocal(csound, src, dest) {
+            // fetch the file
+            let srcfile = await fetch(src, {cache: "no-store"}); //, mode: "no-cors", crossorigin: "anonymous"})
+            
+            // get the file data as an array
+            let dat = await srcfile.arrayBuffer();
+            console.log("fetched src: " + src + " dat length: " + dat.byteLength)
+            // write the data as a new file in the filesystem
+            await csound.fs.writeFile(dest, new Uint8Array(dat));
+            console.log("finished writing file to " + dest);
+        };
 
         const csoundVariations = [
             { useWorker: false, useSPN: false, name: "SINGLE THREAD, AW" },
@@ -403,18 +522,28 @@ var csoundModule = {
 
         variation = csoundVariations[flags]
         csdText = UTF8ToString(csdTextPtr)
-
-        console.log("starting to await for Csound with flag: " + flags)
+        //options = UTF8ToString(optionsPtr);
+        var filesToLoad = UTF8ToString(filesToLoadTextPtr);
+        //var filesToLoad = "./StreamingAssets/samples/hrtf-44100-left.dat:./StreamingAssets/samples/hrtf-44100-right.dat"
+        var filesArray = filesToLoad.split(":");
+        
+        console.log("starting to await for Csound with flag: " + flags);// + " options: " + options)
         const cs = await Csound(variation);
+
+        for (const element of filesArray) {
+            var name = element.substring(element.lastIndexOf('/') + 1);
+            await copyUrlToLocal(cs, element, "./" + name);
+        };
+
         console.log(`Csound version: ${cs.name}`);
         const compileReturn = await cs.compileCsdText(csdText);
         const startReturn = await cs.start();
-        console.log(startReturn);
+        //console.log(startReturn);
         CsoundRef.instances[CsoundRef.uniqueIdCounter] = cs;
         var uniqueId = CsoundRef.uniqueIdCounter;
         CsoundRef.uniqueIdCounter++;
         console.log(`uniqueId: ${uniqueId}, CsoundRef.uniqueIdCounter: ${CsoundRef.uniqueIdCounter}`);
-        Module['dynCall_vi'](callback, [uniqueId]);
+        Module['dynCall_vi'](callback, uniqueId);
         //cs.terminateInstance && (await cs.terminateInstance());
     },
 
@@ -423,24 +552,51 @@ var csoundModule = {
     },
 
     csoundGetChannel: async function (uniqueId, channelPtr) {
-        return CsoundRef.instances[uniqueId].getControlChannel(UTF8ToString(channel));
+        return CsoundRef.instances[uniqueId].getControlChannel(UTF8ToString(channelPtr));
     },
 
     csoundSetChannel: async function (uniqueId, channelPtr, value) {
         CsoundRef.instances[uniqueId].setControlChannel(UTF8ToString(channelPtr), value);
+    },
+
+    csoundStop: async function(uniqueId, callback) {
+
+        //await CsoundRef.instances[uniqueId].stop();
+        await CsoundRef.instances[uniqueId].cleanup();
+        Module['dynCall_vi'](callback, uniqueId);
+    },
+
+    csoundReset: async function(uniqueId) {
+        CsoundRef.instances[uniqueId].reset();
+    },
+
+    csoundGetTable: async function(uniqueId, tableId, callback) {
+        var table = await CsoundRef.instances[uniqueId].getTable(tableId);
+        console.log("table len: "+ table.length + ": " + table + "\nBYTES_PER_ELEMENT: " + table.BYTES_PER_ELEMENT)
+        var buf = _malloc(table.length * table.BYTES_PER_ELEMENT);
+        Module.HEAPF64.set(table, buf >> 3);
+        Module['dynCall_viii'](callback, uniqueId, table.length, buf);
+    },
+
+    csoundSetOption: async function(uniqueId, option, callback) {
+        var opt = UTF8ToString(option);
+        console.log("csoundSetOption for id: " + uniqueId + " option: " + opt)
+        var res = await CsoundRef.instances[uniqueId].setOption(opt);
+        console.log("csoundSetOption res: " + res + " option: " + opt);
+        Module['dynCall_vii'](callback, uniqueId, res);
+        //return res;
+    },
+
+
+    csoundInputMessage: async function(uniqueId, scoreEvent) {
+        var event = UTF8ToString(scoreEvent);
+        console.log("csoundInputMessage for id: " + uniqueId + " scoreEvent: " + event + " Csound: " + CsoundRef.instances[uniqueId])
+        var res = await CsoundRef.instances[uniqueId].inputMessageAsync(event);
+        console.log("csoundInputMessage res: " + res + " scoreEvent: " + event)
+        return res;
     }
 
-
-    // Expose functions using object literal
-    // return {
-    //     csoundTest,
-    //     //uniqueIdCounter,
-    //     csoundInitialize,
-    //     //csoundGetInstance,
-    //     //csoundGetChannel,
-    //     //csoundSetChannel
-    // };
-}//)();
+}
 
 autoAddDeps(csoundModule, '$CsoundRef');
 mergeInto(LibraryManager.library, csoundModule);
