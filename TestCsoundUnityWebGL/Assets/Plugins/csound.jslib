@@ -459,7 +459,7 @@ schedule("FBReverbMixer", 0, -1)
         await canStayAlive(variation);
     },
 
-    csoundInitialize: async function (flags, csdTextPtr, filesToLoadTextPtr, callback) {
+    csoundInitialize: async function (id, flags, csdTextPtr, filesToLoadTextPtr, callback) {
         //window.alert("csoundInitialize");
 
         // this is called by the open button
@@ -520,6 +520,14 @@ schedule("FBReverbMixer", 0, -1)
             { useWorker: true, useSAB: false, useSPN: true, name: "WORKER, SPN, MessagePort" },
         ];
 
+        if (CsoundRef.instances[id] !== undefined)
+        {
+            // in case the id exists already, we could kill the existing instance and replace it with a new one
+            // for now let's reject the operation
+            console.log("id already exists! aborting Csound creation with id " + id);
+            reject("existing id");
+            return;
+        }
         variation = csoundVariations[flags]
         csdText = UTF8ToString(csdTextPtr)
         //options = UTF8ToString(optionsPtr);
@@ -527,7 +535,7 @@ schedule("FBReverbMixer", 0, -1)
         //var filesToLoad = "./StreamingAssets/samples/hrtf-44100-left.dat:./StreamingAssets/samples/hrtf-44100-right.dat"
         var filesArray = filesToLoad.split(":");
         
-        console.log("starting to await for Csound with flag: " + flags);// + " options: " + options)
+        console.log(`starting to await for Csound id ${id} with flag: ${flags}`);// + " options: " + options)
         const cs = await Csound(variation);
 
         for (const element of filesArray) {
@@ -589,9 +597,10 @@ schedule("FBReverbMixer", 0, -1)
 
 
     csoundInputMessage: async function(uniqueId, scoreEvent) {
+
         var event = UTF8ToString(scoreEvent);
         console.log("csoundInputMessage for id: " + uniqueId + " scoreEvent: " + event + " Csound: " + CsoundRef.instances[uniqueId])
-        var res = await CsoundRef.instances[uniqueId].inputMessageAsync(event);
+        var res = await CsoundRef.instances[uniqueId].inputMessage(event);
         console.log("csoundInputMessage res: " + res + " scoreEvent: " + event)
         return res;
     }
